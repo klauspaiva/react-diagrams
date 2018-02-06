@@ -49,6 +49,9 @@ export class LinkLayerWidget extends React.Component<LinkLayerProps, LinkLayerSt
 									link.points[0].updateLocation(
 										this.props.diagramEngine.getPortCenter(link.sourcePort)
 									);
+									link.sourcePort.updateCoords(
+										this.props.diagramEngine.getPortCoords(link.sourcePort)
+									);
 									this.props.diagramEngine.linksThatHaveInitiallyRendered[link.id] = true;
 								} catch (ex) {}
 							}
@@ -56,6 +59,9 @@ export class LinkLayerWidget extends React.Component<LinkLayerProps, LinkLayerSt
 								try {
 									_.last(link.points).updateLocation(
 										this.props.diagramEngine.getPortCenter(link.targetPort)
+									);
+									link.targetPort.updateCoords(
+										this.props.diagramEngine.getPortCoords(link.targetPort)
 									);
 									this.props.diagramEngine.linksThatHaveInitiallyRendered[link.id] = true;
 								} catch (ex) {}

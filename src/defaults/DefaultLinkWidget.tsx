@@ -1,7 +1,11 @@
 import * as React from "react";
+import * as _ from "lodash";
+import * as PF from 'pathfinding';
+import * as Path from 'paths-js/path';
 import { DiagramEngine } from "../DiagramEngine";
 import { LinkModel } from "../models/LinkModel";
 import { PointModel } from "../models/PointModel";
+import { NodeModel } from "../models/NodeModel";
 
 export interface DefaultLinkProps {
 	color?: string;
@@ -209,14 +213,64 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			lastPointDelta},${lastPoint.y} ${lastPoint.x},${lastPoint.y}`;
 	}
 
+	generateDynamicPath(pathCoords: number[][]) {
+		let path = Path();
+		path = path.moveto(pathCoords[0][0], pathCoords[0][1]);
+		pathCoords.slice(1).forEach(coords => {
+			path = path.lineto(coords[0], coords[1]);
+		});
+		return path.print();
+	}
+
 	render() {
+		const { diagramEngine } = this.props;
+		if (!diagramEngine.nodesRendered) {
+			return null;
+		}
+
 		//ensure id is present for all points on the path
 		var points = this.props.link.points;
-		var paths = [];
-		let model = this.props.diagramEngine.getDiagramModel();
 
+		var paths = [];
+		let model = diagramEngine.getDiagramModel();
+
+		if (diagramEngine.isSmartRoutingEnabled()) {
+			const matrix = diagramEngine.getRoutingMatrix();
+			
+			const finder = new PF.BiBestFirstFinder({
+				heuristic: PF.Heuristic.manhattan,
+			});
+			const grid = new PF.Grid(matrix);
+
+			const pathCoords = finder.findPath(
+				Math.floor(points[0].x),
+				Math.floor(points[0].y),
+				Math.floor(points[1].x),
+				Math.floor(points[1].y),
+				grid
+			);
+			// TODO figure out why this happens
+			if (pathCoords.length === 0) {
+				return null;
+			}
+			// const svgPath = this.generateDynamicPath(PF.Util.smoothenPath(grid, pathCoords));
+			const svgPath = this.generateDynamicPath(PF.Util.compressPath(pathCoords));
+
+			paths.push(
+				this.generateLink(
+					{
+						onMouseDown: event => {
+							this.addPointToLink(event, 1);
+						},
+						d: svgPath
+					},
+					"0"
+				)
+			);
+		}
 		//draw the smoothing
-		if (points.length === 2) {
+		else if (points.length === 2) {
+
 			//if the points are too close, just draw a straight line
 			var margin = 50;
 			if (Math.abs(points[0].x - points[1].x) < 50) {

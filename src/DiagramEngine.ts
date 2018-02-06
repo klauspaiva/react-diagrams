@@ -36,6 +36,10 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	linksThatHaveInitiallyRendered: {};
 	nodesRendered: boolean;
 	maxNumberPointsPerLink: number;
+	smartRouting: boolean;
+
+	// calculated only when smart routing is active
+	routingMatrix: number[][];
 
 	constructor() {
 		super();
@@ -252,11 +256,179 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 		};
 	}
 
+	getPortCoords(port: PortModel): {
+		x: number,
+		y: number,
+		width: number,
+		height: number,
+	} {
+		const sourceElement = this.getNodePortElement(port);
+		const sourceRect = sourceElement.getBoundingClientRect();
+
+		const rel = this.getRelativePoint(sourceRect.left, sourceRect.top);
+
+		return {
+			x: (rel.x - this.diagramModel.getOffsetX()) / (this.diagramModel.getZoomLevel() / 100.0),
+			y: (rel.y - this.diagramModel.getOffsetY()) / (this.diagramModel.getZoomLevel() / 100.0),
+			width: sourceRect.width,
+			height: sourceRect.height,
+		};
+	}
+
+	getNodeElement(node: NodeModel): any {
+		const selector = this.canvas.querySelector(
+			'.node[data-nodeid="' + node.getID() + '"]'
+		);
+		if (selector === null) {
+			throw new Error(
+				"Cannot find Node element with nodeID: [" +
+					node.getID() +
+					"]"
+			);
+		}
+		return selector;
+	}
+
+	getNodeDimensions(node: NodeModel): {
+		width: number,
+		height: number,
+	} {
+		const nodeElement = this.getNodeElement(node);
+		const nodeRect = nodeElement.getBoundingClientRect();
+
+		return {
+			width: nodeRect.width,
+			height: nodeRect.height,
+		}
+	}
+
 	getMaxNumberPointsPerLink(): number {
 		return this.maxNumberPointsPerLink;
 	}
 	setMaxNumberPointsPerLink(max: number) {
 		this.maxNumberPointsPerLink = max;
+	}
+
+	isSmartRoutingEnabled() {
+		return !!this.smartRouting;
+	}
+	setSmartRoutingStatus(status: boolean) {
+		this.smartRouting = status;
+	}
+
+	/**
+	 * A representation of the canvas in the following format:
+	 * 
+	 * +-----------------+
+	 * | 0 0 1 1 0 0 0 0 |
+	 * | 0 0 1 1 0 0 1 1 |
+	 * | 0 0 0 0 0 0 1 1 |
+	 * | 1 1 0 0 0 0 0 0 |
+	 * | 1 1 0 0 0 0 0 0 |
+	 * +-----------------+
+	 * 
+	 * In which all points blocked by a node (and its ports) are
+	 * marked as 1; points were there is nothing (ie, free) receive 0.
+	 */
+	getRoutingMatrix(): number[][] {
+		if (!this.routingMatrix) {
+			this.calculateRoutingMatrix();
+		}
+
+		return this.routingMatrix;
+	}
+	calculateRoutingMatrix(): void {
+		const { width: canvasWidth, height: canvasHeight } = this.calculateMatrixDimensions();
+
+		const matrix = _.range(0, canvasHeight).map(() => {
+			return (new Array(canvasWidth)).fill(0);
+		});
+		// nodes need to be marked as blocked points
+		this.markNodes(matrix);
+		// but we need to unblock those who intersect with ports and points
+		this.markPortsAndPoints(matrix);
+
+		this.routingMatrix = matrix;
+	}
+
+	/**
+	 * Despite being a long method, we simply iterate over all three collections (nodes, ports and points)
+	 * to find the highest X and Y dimensions, so we can build the matrix large enough to encompass all elements.
+	 */
+	calculateMatrixDimensions = (): {
+		width: number,
+		height: number,
+	} => {
+		const allNodesCoords = _.values(this.diagramModel.nodes)
+			.map(item => ({
+				x: item.x + item.width,
+				y: item.y + item.height,
+			})
+		);
+
+		const allLinks = _.values(this.diagramModel.links);
+		const allPortsCoords = _.flatMap(allLinks.map(link => [link.sourcePort, link.targetPort]))
+			.map(item => ({
+				x: item.x + item.width,
+				y: item.y + item.height,
+			}));
+		const allPointsCoords = _.flatMap(allLinks.map(link => link.points))
+			.map(item => ({
+				// points don't have width/height, so they count as 0
+				x: item.x,
+				y: item.y,
+			}));
+
+		const maxX = _.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x;
+		const maxY = _.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y;
+
+		// how much extra space should we give so the routing
+		// can be calculated around elements at the edge of the canvas
+		const routingAffordance = 100;
+		return {
+			width: Math.ceil(maxX + routingAffordance),
+			height: Math.ceil(maxY + routingAffordance),
+		}
+	}
+
+	/**
+	 * Updates (by reference) where nodes will be drawn on the matrix passed in.
+	 */
+	markNodes = (matrix: number[][]): void => {
+		_.values(this.diagramModel.nodes).forEach(node => {
+			const startX = Math.floor(node.x);
+			const startY = Math.floor(node.y);
+			const endX = Math.ceil(node.x + node.width);
+			const endY = Math.ceil(node.y + node.height);
+
+			for (let i = startX - 10; i <= endX + 10; i++) {
+				for (let j = startY - 10; j < endY + 10; j++) {
+					matrix[j][i] = 1;
+				}
+			}
+		});
+	}
+
+	/**
+	 * Updates (by reference) where ports and points will be drawn on the matrix passed in.
+	 */
+	markPortsAndPoints = (matrix: number[][]): void => {
+		const allElements = _.flatMap(_.values(this.diagramModel.links)
+			.map(link => [].concat(link.sourcePort, link.targetPort, link.points)))
+		allElements.forEach(item => {
+			const startX = Math.floor(item.x);
+			const startY = Math.floor(item.y);
+			const endX = Math.ceil(item.x + (item.width || 0));
+			const endY = Math.ceil(item.y + (item.height || 0));
+
+			for (let i = startX - 20; i <= endX + 20; i++) {
+				for (let j = startY - 20; j < endY + 20; j++) {
+					// usually the value is already set to 0 but we need for enforce that
+					// because there could be a node overlapping with a point or port
+					matrix[j][i] = 0;
+				}
+			}
+		});
 	}
 
 	zoomToFit() {
