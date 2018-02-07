@@ -98,6 +98,7 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 				strokeWidth={props.width}
 				stroke={props.color}
 				ref={path => path && this.refPaths.push(path)}
+				markerEnd="url(#arrow)"
 				{...extraProps}
 			/>
 		);
@@ -222,6 +223,59 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		return path.print();
 	}
 
+	calculateDirectPath(
+		from: {
+			x: number,
+			y: number,
+		},
+		to: {
+			x:number,
+			y:number
+		}
+	): number[][] {
+		const { diagramEngine } = this.props;
+		const matrix = diagramEngine.getCanvasMatrix();
+
+		const finder = new PF.JumpPointFinder({
+			heuristic: PF.Heuristic.manhattan,
+			diagonalMovement: PF.DiagonalMovement.Never,
+		});
+		const grid = new PF.Grid(matrix);
+
+		return finder.findPath(
+			Math.floor(from.x),
+			Math.floor(from.y),
+			Math.floor(to.x),
+			Math.floor(to.y),
+			grid
+		)
+	}
+
+	calculateLinkStartEndCoords(matrix: number[][], path: number[][]): {
+		start: {
+			x: number,
+			y: number,
+		},
+		end: {
+			x: number,
+			y: number,
+		}
+	} {
+		const start = path.find(point => matrix[point[1]][point[0]] === 0);
+		const end = path.slice().reverse().find(point => matrix[point[1]][point[0]] === 0);
+
+		return {
+			start: {
+				x: start[0],
+				y: start[1],
+			},
+			end: {
+				x: end[0],
+				y: end[1],
+			}
+		};
+	}
+
 	render() {
 		const { diagramEngine } = this.props;
 		if (!diagramEngine.nodesRendered) {
@@ -235,18 +289,26 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		let model = diagramEngine.getDiagramModel();
 
 		if (diagramEngine.isSmartRoutingEnabled()) {
-			const matrix = diagramEngine.getRoutingMatrix();
+			// first step: calculate a direct path between the points being linked
+			const directPathCoords = this.calculateDirectPath(points[0], points[1]);
+
+			const routingMatrix = diagramEngine.getRoutingMatrix();
+			// now we need to extract, from the routing matrix, the very first walkable points
+			// so they can be used as origin and destination of the link to be created
+			const { start, end } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
 			
-			const finder = new PF.BiBestFirstFinder({
+			// second step: calculate a path avoiding hitting other elements
+			const finder = new PF.JumpPointFinder({
 				heuristic: PF.Heuristic.manhattan,
+				diagonalMovement: PF.DiagonalMovement.Never,
 			});
-			const grid = new PF.Grid(matrix);
+			const grid = new PF.Grid(routingMatrix);
 
 			const pathCoords = finder.findPath(
-				Math.floor(points[0].x),
-				Math.floor(points[0].y),
-				Math.floor(points[1].x),
-				Math.floor(points[1].y),
+				Math.floor(start.x),
+				Math.floor(start.y),
+				Math.floor(end.x),
+				Math.floor(end.y),
 				grid
 			);
 			// TODO figure out why this happens

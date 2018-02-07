@@ -37,6 +37,13 @@ export class LinkLayerWidget extends React.Component<LinkLayerProps, LinkLayerSt
 					height: "100%"
 				}}
 			>
+				{/* TODO: only for testing */}
+				<defs>
+					<marker id="arrow" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto" markerUnits="strokeWidth">
+						<path d="M0,2 L0,4 L4,2 L0,0 Z" fill="#CCC" />
+					</marker>
+				</defs>
+
 				{//only perform these actions when we have a diagram
 				this.props.diagramEngine.canvas &&
 					_.map(diagramModel.getLinks(), link => {
