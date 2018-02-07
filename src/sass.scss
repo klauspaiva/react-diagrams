@@ -43,7 +43,6 @@
 		user-select: none;
 		cursor: move;
 		pointer-events: all;
-		opacity: 0.5; /* TODO: undo this */
 
 		&.selected{
 			>* {

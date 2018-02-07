@@ -259,20 +259,23 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		end: {
 			x: number,
 			y: number,
-		}
+		},
+		pathToStart: number[][],
 	} {
-		const start = path.find(point => matrix[point[1]][point[0]] === 0);
+		const startIndex = path.findIndex(point => matrix[point[1]][point[0]] === 0);
+		const pathToStart = path.slice(0, startIndex);
 		const end = path.slice().reverse().find(point => matrix[point[1]][point[0]] === 0);
 
 		return {
 			start: {
-				x: start[0],
-				y: start[1],
+				x: path[startIndex][0],
+				y: path[startIndex][1],
 			},
 			end: {
 				x: end[0],
 				y: end[1],
-			}
+			},
+			pathToStart,
 		};
 	}
 
@@ -295,7 +298,7 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			const routingMatrix = diagramEngine.getRoutingMatrix();
 			// now we need to extract, from the routing matrix, the very first walkable points
 			// so they can be used as origin and destination of the link to be created
-			const { start, end } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
+			const { start, end, pathToStart } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
 			
 			// second step: calculate a path avoiding hitting other elements
 			const finder = new PF.JumpPointFinder({
@@ -304,13 +307,13 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			});
 			const grid = new PF.Grid(routingMatrix);
 
-			const pathCoords = finder.findPath(
+			const pathCoords = pathToStart.concat(finder.findPath(
 				Math.floor(start.x),
 				Math.floor(start.y),
 				Math.floor(end.x),
 				Math.floor(end.y),
 				grid
-			);
+			));
 			// TODO figure out why this happens
 			if (pathCoords.length === 0) {
 				return null;
