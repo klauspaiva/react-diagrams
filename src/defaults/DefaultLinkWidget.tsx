@@ -2,7 +2,7 @@ import * as React from "react";
 import * as _ from "lodash";
 import * as PF from 'pathfinding';
 import * as Path from 'paths-js/path';
-import { DiagramEngine } from "../DiagramEngine";
+import { DiagramEngine, ROUTING_SCALING_FACTOR } from "../DiagramEngine";
 import { LinkModel } from "../models/LinkModel";
 import { PointModel } from "../models/PointModel";
 import { NodeModel } from "../models/NodeModel";
@@ -216,9 +216,15 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 
 	generateDynamicPath(pathCoords: number[][]) {
 		let path = Path();
-		path = path.moveto(pathCoords[0][0], pathCoords[0][1]);
+		path = path.moveto(
+			pathCoords[0][0] * ROUTING_SCALING_FACTOR,
+			pathCoords[0][1] * ROUTING_SCALING_FACTOR,
+		);
 		pathCoords.slice(1).forEach(coords => {
-			path = path.lineto(coords[0], coords[1]);
+			path = path.lineto(
+				coords[0] * ROUTING_SCALING_FACTOR,
+				coords[1] * ROUTING_SCALING_FACTOR,
+			);
 		});
 		return path.print();
 	}
@@ -243,10 +249,10 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		const grid = new PF.Grid(matrix);
 
 		return finder.findPath(
-			Math.floor(from.x),
-			Math.floor(from.y),
-			Math.floor(to.x),
-			Math.floor(to.y),
+			Math.floor(from.x / ROUTING_SCALING_FACTOR),
+			Math.floor(from.y / ROUTING_SCALING_FACTOR),
+			Math.floor(to.x / ROUTING_SCALING_FACTOR),
+			Math.floor(to.y / ROUTING_SCALING_FACTOR),
 			grid
 		)
 	}

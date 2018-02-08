@@ -22,6 +22,13 @@ export interface DiagramEngineListener extends BaseListener {
 	repaintCanvas?(): void;
 }
 
+/*
+it can be very expensive to calculate routes when every single pixel on the canvas
+is individually represented. Using the factor below, we combine values in order
+to achieve the best trade-off between accuracy and performance.
+*/
+export const ROUTING_SCALING_FACTOR = 5;
+
 /**
  * Passed as a parameter to the DiagramWidget
  */
@@ -39,8 +46,8 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	smartRouting: boolean;
 
 	// calculated only when smart routing is active
-	canvasMatrix: number[][];
-	routingMatrix: number[][];
+	canvasMatrix: number[][] = [];
+	routingMatrix: number[][] = [];
 
 	constructor() {
 		super();
@@ -316,7 +323,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	}
 
 	getCanvasMatrix(): number[][] {
-		if (!this.canvasMatrix) {
+		if (this.canvasMatrix.length === 0) {
 			this.canvasMatrix = this.generateCanvasMatrix();
 		}
 
@@ -326,8 +333,11 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	generateCanvasMatrix(): number[][] {
 		const { width: canvasWidth, height: canvasHeight } = this.calculateMatrixDimensions();
 
-		return _.range(0, canvasHeight).map(() => {
-			return (new Array(canvasWidth)).fill(0);
+		const matrixWidth = Math.ceil(canvasWidth / ROUTING_SCALING_FACTOR);
+		const matrixHeight = Math.ceil(canvasHeight / ROUTING_SCALING_FACTOR);
+
+		return _.range(0, matrixHeight).map(() => {
+			return (new Array(matrixWidth)).fill(0);
 		});
 	}
 
@@ -346,7 +356,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	 * marked as 1; points were there is nothing (ie, free) receive 0.
 	 */
 	getRoutingMatrix(): number[][] {
-		if (!this.routingMatrix) {
+		if (this.routingMatrix.length === 0) {
 			this.calculateRoutingMatrix();
 		}
 
@@ -358,7 +368,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 		// nodes need to be marked as blocked points
 		this.markNodes(matrix);
 		// but we need to unblock those who intersect with ports and points
-		this.markPortsAndPoints(matrix);
+		this.markPorts(matrix);
 
 		this.routingMatrix = matrix;
 	}
@@ -395,13 +405,11 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 		const canvas = this.canvas as HTMLDivElement;
 		const maxX = Math.max(
 			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x,
-			// TODO: fix this
-			// canvas.offsetWidth,
+			canvas.offsetWidth,
 		);
 		const maxY = Math.max(
 			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y,
-			// TODO: fix this
-			// canvas.offsetHeight
+			canvas.offsetHeight
 		);
 
 		// how much extra space should we give so the routing
@@ -418,37 +426,35 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	 */
 	markNodes = (matrix: number[][]): void => {
 		_.values(this.diagramModel.nodes).forEach(node => {
-			const startX = Math.floor(node.x);
-			const startY = Math.floor(node.y);
-			const endX = Math.ceil(startX + node.width);
-			const endY = Math.ceil(startY + node.height);
+			const startX = Math.floor(node.x / ROUTING_SCALING_FACTOR);
+			const endX = Math.ceil((node.x + node.width) / ROUTING_SCALING_FACTOR);
+			const startY = Math.floor(node.y / ROUTING_SCALING_FACTOR);
+			const endY = Math.ceil((node.y + node.height) / ROUTING_SCALING_FACTOR);
 
-			for (let i = startX - 3; i <= endX + 3; i++) {
-				for (let j = startY - 3; j < endY + 3; j++) {
-					matrix[j][i] = 1;
+			for (let x = startX - 1; x <= endX + 1; x++) {
+				for (let y = startY - 1; y < endY + 1; y++) {
+					matrix[y][x] = 1;
 				}
 			}
 		});
 	}
 
 	/**
-	 * Updates (by reference) where ports and points will be drawn on the matrix passed in.
+	 * Updates (by reference) where ports will be drawn on the matrix passed in.
 	 */
-	markPortsAndPoints = (matrix: number[][]): void => {
+	markPorts = (matrix: number[][]): void => {
 		const allElements = _.flatMap(_.values(this.diagramModel.links)
-			.map(link => [].concat(link.sourcePort, link.targetPort, link.points)));
-		allElements.forEach(item => {
-			const startX = Math.floor(item.x - (item.width ? item.width / 2 : 0));
-			const startY = Math.floor(item.y - (item.height ? item.height / 2 : 0));
-			const endX = Math.ceil(startX + (item.width || 0));
-			const endY = Math.ceil(startY + (item.height || 0));
+			// TODO: confirm we don't need points
+			.map(link => [].concat(link.sourcePort, link.targetPort/*, link.points*/)));
+		allElements.forEach(port => {
+			const startX = Math.floor(port.x / ROUTING_SCALING_FACTOR);
+			const endX = Math.ceil((port.x + port.width) / ROUTING_SCALING_FACTOR);
+			const startY = Math.floor(port.y / ROUTING_SCALING_FACTOR);
+			const endY = Math.ceil((port.y + port.height) / ROUTING_SCALING_FACTOR);
 
-			for (let i = startX - 3; i <= endX + 3; i++) {
-				for (let j = startY - 3; j < endY + 3; j++) {
-					// TODO: revisit this comment
-					// usually the value is already set to 0 but we need for enforce that
-					// because there could be a node overlapping with a point or port
-					matrix[j][i] = 1;
+			for (let x = startX - 1; x <= endX + 1; x++) {
+				for (let y = startY - 1; y < endY + 1; y++) {
+					matrix[y][x] = 1;
 				}
 			}
 		});
