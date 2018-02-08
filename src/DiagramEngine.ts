@@ -266,11 +266,9 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 		const sourceElement = this.getNodePortElement(port);
 		const sourceRect = sourceElement.getBoundingClientRect();
 
-		const rel = this.getRelativePoint(sourceRect.left, sourceRect.top);
-
 		return {
-			x: (rel.x - this.diagramModel.getOffsetX()) / (this.diagramModel.getZoomLevel() / 100.0),
-			y: (rel.y - this.diagramModel.getOffsetY()) / (this.diagramModel.getZoomLevel() / 100.0),
+			x: (sourceRect.x - this.diagramModel.getOffsetX()) / (this.diagramModel.getZoomLevel() / 100.0),
+			y: (sourceRect.y - this.diagramModel.getOffsetY()) / (this.diagramModel.getZoomLevel() / 100.0),
 			width: sourceRect.width,
 			height: sourceRect.height,
 		};
@@ -394,12 +392,21 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 				y: item.y,
 			}));
 
-		const maxX = _.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x;
-		const maxY = _.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y;
+		const canvas = this.canvas as HTMLDivElement;
+		const maxX = Math.max(
+			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x,
+			// TODO: fix this
+			// canvas.offsetWidth,
+		);
+		const maxY = Math.max(
+			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y,
+			// TODO: fix this
+			// canvas.offsetHeight
+		);
 
 		// how much extra space should we give so the routing
 		// can be calculated around elements at the edge of the canvas
-		const routingAffordance = 100;
+		const routingAffordance = 200;
 		return {
 			width: Math.ceil(maxX + routingAffordance),
 			height: Math.ceil(maxY + routingAffordance),

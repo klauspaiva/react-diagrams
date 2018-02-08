@@ -53,6 +53,7 @@ export class LinkLayerWidget extends React.Component<LinkLayerProps, LinkLayerSt
 						) {
 							if (link.sourcePort !== null) {
 								try {
+									// TODO: review this
 									link.points[0].updateLocation(
 										this.props.diagramEngine.getPortCenter(link.sourcePort)
 									);
