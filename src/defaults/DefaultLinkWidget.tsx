@@ -98,7 +98,6 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 				strokeWidth={props.width}
 				stroke={props.color}
 				ref={path => path && this.refPaths.push(path)}
-				markerEnd="url(#arrow)"
 				{...extraProps}
 			/>
 		);
@@ -267,10 +266,12 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			y: number,
 		},
 		pathToStart: number[][],
+		pathToEnd: number[][],
 	} {
 		const startIndex = path.findIndex(point => matrix[point[1]][point[0]] === 0);
 		const pathToStart = path.slice(0, startIndex);
-		const end = path.slice().reverse().find(point => matrix[point[1]][point[0]] === 0);
+		const endIndex = path.length - path.slice().reverse().findIndex(point => matrix[point[1]][point[0]] === 0) - 1;
+		const pathToEnd = path.slice(endIndex);
 
 		return {
 			start: {
@@ -278,10 +279,11 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 				y: path[startIndex][1],
 			},
 			end: {
-				x: end[0],
-				y: end[1],
+				x: path[endIndex][0],
+				y: path[endIndex][1],
 			},
 			pathToStart,
+			pathToEnd,
 		};
 	}
 
@@ -304,7 +306,7 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			const routingMatrix = diagramEngine.getRoutingMatrix();
 			// now we need to extract, from the routing matrix, the very first walkable points
 			// so they can be used as origin and destination of the link to be created
-			const { start, end, pathToStart } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
+			const { start, end, pathToStart, pathToEnd } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
 			
 			// second step: calculate a path avoiding hitting other elements
 			const finder = new PF.JumpPointFinder({
@@ -313,17 +315,14 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			});
 			const grid = new PF.Grid(routingMatrix);
 
-			const pathCoords = pathToStart.concat(finder.findPath(
+			const dynamicPath = finder.findPath(
 				Math.floor(start.x),
 				Math.floor(start.y),
 				Math.floor(end.x),
 				Math.floor(end.y),
 				grid
-			));
-			// TODO figure out why this happens
-			if (pathCoords.length === 0) {
-				return null;
-			}
+			);
+			const pathCoords = pathToStart.concat(dynamicPath, pathToEnd);
 			// const svgPath = this.generateDynamicPath(PF.Util.smoothenPath(grid, pathCoords));
 			const svgPath = this.generateDynamicPath(PF.Util.compressPath(pathCoords));
 
