@@ -254,6 +254,15 @@ export class DiagramWidget extends React.Component<DiagramProps, DiagramState> {
 				) {
 					model.model.x = diagramModel.getGridPosition(model.initialX + amountX / amountZoom);
 					model.model.y = diagramModel.getGridPosition(model.initialY + amountY / amountZoom);
+					
+					// update port coordinates as well
+					if (model.model instanceof NodeModel) {
+						_.forEach(model.model.getPorts(), port => {
+							const portCoords = this.props.diagramEngine.getPortCoords(port);
+							port.updateCoords(portCoords);
+						});
+					}
+
 					diagramEngine.calculateRoutingMatrix();
 				} else if (model.model instanceof PointModel) {
 					// we want points that are connected to ports, to not neccesarilly snap to grid

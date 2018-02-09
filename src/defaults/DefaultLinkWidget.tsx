@@ -20,6 +20,11 @@ export interface DefaultLinkState {
 	selected: boolean;
 }
 
+const pathFinderInstance = new PF.JumpPointFinder({
+	heuristic: PF.Heuristic.manhattan,
+	diagonalMovement: PF.DiagonalMovement.Never,
+});
+
 /**
  * @author Dylan Vorster
  */
@@ -241,13 +246,9 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		const { diagramEngine } = this.props;
 		const matrix = diagramEngine.getCanvasMatrix();
 
-		const finder = new PF.JumpPointFinder({
-			heuristic: PF.Heuristic.manhattan,
-			diagonalMovement: PF.DiagonalMovement.Never,
-		});
 		const grid = new PF.Grid(matrix);
 
-		return finder.findPath(
+		return pathFinderInstance.findPath(
 			Math.floor(from.x / ROUTING_SCALING_FACTOR),
 			Math.floor(from.y / ROUTING_SCALING_FACTOR),
 			Math.floor(to.x / ROUTING_SCALING_FACTOR),
@@ -309,19 +310,16 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			const { start, end, pathToStart, pathToEnd } = this.calculateLinkStartEndCoords(routingMatrix, directPathCoords);
 			
 			// second step: calculate a path avoiding hitting other elements
-			const finder = new PF.JumpPointFinder({
-				heuristic: PF.Heuristic.manhattan,
-				diagonalMovement: PF.DiagonalMovement.Never,
-			});
 			const grid = new PF.Grid(routingMatrix);
-
-			const dynamicPath = finder.findPath(
+			const dynamicPath = pathFinderInstance.findPath(
 				Math.floor(start.x),
 				Math.floor(start.y),
 				Math.floor(end.x),
 				Math.floor(end.y),
 				grid
 			);
+
+			// third step: aggregate everything to have the calculated path ready for render
 			const pathCoords = pathToStart.concat(dynamicPath, pathToEnd);
 			// const svgPath = this.generateDynamicPath(PF.Util.smoothenPath(grid, pathCoords));
 			const svgPath = this.generateDynamicPath(PF.Util.compressPath(pathCoords));

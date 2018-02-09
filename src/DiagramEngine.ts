@@ -272,10 +272,11 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	} {
 		const sourceElement = this.getNodePortElement(port);
 		const sourceRect = sourceElement.getBoundingClientRect();
+		const canvasRect = this.canvas.getBoundingClientRect() as ClientRect;
 
 		return {
-			x: (sourceRect.x - this.diagramModel.getOffsetX()) / (this.diagramModel.getZoomLevel() / 100.0),
-			y: (sourceRect.y - this.diagramModel.getOffsetY()) / (this.diagramModel.getZoomLevel() / 100.0),
+			x: (sourceRect.x - this.diagramModel.getOffsetX()) / (this.diagramModel.getZoomLevel() / 100.0) - canvasRect.left,
+			y: (sourceRect.y - this.diagramModel.getOffsetY()) / (this.diagramModel.getZoomLevel() / 100.0) - canvasRect.top,
 			width: sourceRect.width,
 			height: sourceRect.height,
 		};
@@ -444,8 +445,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	 */
 	markPorts = (matrix: number[][]): void => {
 		const allElements = _.flatMap(_.values(this.diagramModel.links)
-			// TODO: confirm we don't need points
-			.map(link => [].concat(link.sourcePort, link.targetPort/*, link.points*/)));
+			.map(link => [].concat(link.sourcePort, link.targetPort)));
 		allElements.forEach(port => {
 			const startX = Math.floor(port.x / ROUTING_SCALING_FACTOR);
 			const endX = Math.ceil((port.x + port.width) / ROUTING_SCALING_FACTOR);

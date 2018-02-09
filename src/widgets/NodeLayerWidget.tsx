@@ -20,18 +20,19 @@ export class NodeLayerWidget extends React.Component<NodeLayerProps, NodeLayerSt
 	}
 
 	updateNodeDimensions = () => {
-		const diagramModel = this.props.diagramEngine.getDiagramModel();
-		// TODO: avoid useless recalculations
-		_.map(diagramModel.getNodes(), node => {
-			node.updateDimensions(
-				this.props.diagramEngine.getNodeDimensions(node)
-			);
-		});
+		if (!this.props.diagramEngine.nodesRendered) {
+			const diagramModel = this.props.diagramEngine.getDiagramModel();
+			_.map(diagramModel.getNodes(), node => {
+				node.updateDimensions(
+					this.props.diagramEngine.getNodeDimensions(node)
+				);
+			});
+		}
 	}
 
 	componentDidUpdate() {
-		this.props.diagramEngine.nodesRendered = true;
 		this.updateNodeDimensions();
+		this.props.diagramEngine.nodesRendered = true;
 	}
 
 	render() {
