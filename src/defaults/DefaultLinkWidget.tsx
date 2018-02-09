@@ -249,12 +249,12 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 		const grid = new PF.Grid(matrix);
 
 		return pathFinderInstance.findPath(
-			Math.floor(from.x / ROUTING_SCALING_FACTOR),
-			Math.floor(from.y / ROUTING_SCALING_FACTOR),
-			Math.floor(to.x / ROUTING_SCALING_FACTOR),
-			Math.floor(to.y / ROUTING_SCALING_FACTOR),
+			diagramEngine.translateRoutingX(Math.floor(from.x / ROUTING_SCALING_FACTOR)),
+			diagramEngine.translateRoutingY(Math.floor(from.y / ROUTING_SCALING_FACTOR)),
+			diagramEngine.translateRoutingX(Math.floor(to.x / ROUTING_SCALING_FACTOR)),
+			diagramEngine.translateRoutingY(Math.floor(to.y / ROUTING_SCALING_FACTOR)),
 			grid
-		)
+		);
 	}
 
 	calculateLinkStartEndCoords(matrix: number[][], path: number[][]): {
@@ -312,15 +312,20 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 			// second step: calculate a path avoiding hitting other elements
 			const grid = new PF.Grid(routingMatrix);
 			const dynamicPath = pathFinderInstance.findPath(
-				Math.floor(start.x),
-				Math.floor(start.y),
-				Math.floor(end.x),
-				Math.floor(end.y),
+				start.x,
+				start.y,
+				end.x,
+				end.y,
 				grid
 			);
 
 			// third step: aggregate everything to have the calculated path ready for render
-			const pathCoords = pathToStart.concat(dynamicPath, pathToEnd);
+			const pathCoords = pathToStart
+				.concat(dynamicPath, pathToEnd)
+				.map(coords => [
+					diagramEngine.translateRoutingX(coords[0], true),
+					diagramEngine.translateRoutingY(coords[1], true),
+				]);
 			// const svgPath = this.generateDynamicPath(PF.Util.smoothenPath(grid, pathCoords));
 			const svgPath = this.generateDynamicPath(PF.Util.compressPath(pathCoords));
 

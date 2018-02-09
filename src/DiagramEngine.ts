@@ -48,6 +48,9 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	// calculated only when smart routing is active
 	canvasMatrix: number[][] = [];
 	routingMatrix: number[][] = [];
+	// used when at least one element has negative coordinates
+	hAdjustmentFactor: number = 0;
+	vAdjustmentFactor: number = 0;
 
 	constructor() {
 		super();
@@ -332,7 +335,15 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	}
 	// TODO: what happens when the canvas change its dimensions?
 	calculateCanvasMatrix() {
-		const { width: canvasWidth, height: canvasHeight } = this.calculateMatrixDimensions();
+		const {
+			width: canvasWidth,
+			hAdjustmentFactor,
+			height: canvasHeight,
+			vAdjustmentFactor,
+		} = this.calculateMatrixDimensions();
+
+		this.hAdjustmentFactor = hAdjustmentFactor;
+		this.vAdjustmentFactor = vAdjustmentFactor;
 
 		const matrixWidth = Math.ceil(canvasWidth / ROUTING_SCALING_FACTOR);
 		const matrixHeight = Math.ceil(canvasHeight / ROUTING_SCALING_FACTOR);
@@ -380,45 +391,59 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 	 */
 	calculateMatrixDimensions = (): {
 		width: number,
+		hAdjustmentFactor: number,
 		height: number,
+		vAdjustmentFactor: number,
 	} => {
 		const allNodesCoords = _.values(this.diagramModel.nodes)
 			.map(item => ({
-				x: item.x + item.width,
-				y: item.y + item.height,
+				x: item.x,
+				width: item.width,
+				y: item.y,
+				height: item.height,
 			})
 		);
 
 		const allLinks = _.values(this.diagramModel.links);
 		const allPortsCoords = _.flatMap(allLinks.map(link => [link.sourcePort, link.targetPort]))
 			.map(item => ({
-				// ports have their Xs and Ys set to center of the element, so we need to add only half of their width
-				x: item.x + item.width / 2,
-				y: item.y + item.height / 2,
+				x: item.x,
+				width: item.width,
+				y: item.y,
+				height: item.height,
 			}));
 		const allPointsCoords = _.flatMap(allLinks.map(link => link.points))
 			.map(item => ({
-				// points don't have width/height, so they count as 0
+				// points don't have width/height, so let's just use 0
 				x: item.x,
+				width: 0,
 				y: item.y,
+				height: 0,
 			}));
 
 		const canvas = this.canvas as HTMLDivElement;
+		const minX = Math.floor(Math.min(
+			_.minBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x,
+			0,
+		) / ROUTING_SCALING_FACTOR) * ROUTING_SCALING_FACTOR;
 		const maxX = Math.max(
-			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x).x,
+			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.x + item.width).x,
 			canvas.offsetWidth,
 		);
+		const minY = Math.floor(Math.min(
+			_.minBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y,
+			0,
+		) / ROUTING_SCALING_FACTOR) * ROUTING_SCALING_FACTOR;
 		const maxY = Math.max(
-			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y).y,
+			_.maxBy(_.concat(allNodesCoords, allPortsCoords, allPointsCoords), (item) => item.y + item.height).y,
 			canvas.offsetHeight
 		);
 
-		// how much extra space should we give so the routing
-		// can be calculated around elements at the edge of the canvas
-		const routingAffordance = 200;
 		return {
-			width: Math.ceil(maxX + routingAffordance),
-			height: Math.ceil(maxY + routingAffordance),
+			width: Math.ceil(Math.abs(minX) + maxX),
+			hAdjustmentFactor: Math.abs(minX) / ROUTING_SCALING_FACTOR,
+			height: Math.ceil(Math.abs(minY) + maxY),
+			vAdjustmentFactor: Math.abs(minY) / ROUTING_SCALING_FACTOR,
 		}
 	}
 
@@ -434,7 +459,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 			for (let x = startX - 1; x <= endX + 1; x++) {
 				for (let y = startY - 1; y < endY + 1; y++) {
-					matrix[y][x] = 1;
+					matrix[this.translateRoutingY(y)][this.translateRoutingX(x)] = 1;
 				}
 			}
 		});
@@ -454,10 +479,17 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 			for (let x = startX - 1; x <= endX + 1; x++) {
 				for (let y = startY - 1; y < endY + 1; y++) {
-					matrix[y][x] = 1;
+					matrix[this.translateRoutingY(y)][this.translateRoutingX(x)] = 1;
 				}
 			}
 		});
+	}
+
+	translateRoutingX(x: number, reverse: boolean = false) {
+		return x + this.hAdjustmentFactor * (reverse ? -1 : 1);
+	}
+	translateRoutingY(y: number, reverse: boolean = false) {
+		return y + this.hAdjustmentFactor * (reverse ? -1 : 1);
 	}
 
 	zoomToFit() {
