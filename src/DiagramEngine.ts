@@ -325,19 +325,19 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 	getCanvasMatrix(): number[][] {
 		if (this.canvasMatrix.length === 0) {
-			this.canvasMatrix = this.generateCanvasMatrix();
+			this.calculateCanvasMatrix();
 		}
 
 		return this.canvasMatrix;
 	}
 	// TODO: what happens when the canvas change its dimensions?
-	generateCanvasMatrix(): number[][] {
+	calculateCanvasMatrix() {
 		const { width: canvasWidth, height: canvasHeight } = this.calculateMatrixDimensions();
 
 		const matrixWidth = Math.ceil(canvasWidth / ROUTING_SCALING_FACTOR);
 		const matrixHeight = Math.ceil(canvasHeight / ROUTING_SCALING_FACTOR);
 
-		return _.range(0, matrixHeight).map(() => {
+		this.canvasMatrix = _.range(0, matrixHeight).map(() => {
 			return (new Array(matrixWidth)).fill(0);
 		});
 	}

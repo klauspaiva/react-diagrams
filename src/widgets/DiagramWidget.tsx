@@ -271,6 +271,11 @@ export class DiagramWidget extends React.Component<DiagramProps, DiagramState> {
 					model.model.y = model.initialY + diagramModel.getGridPosition(amountY / amountZoom);
 				}
 			});
+
+			if (diagramEngine.isSmartRoutingEnabled()) {
+				diagramEngine.calculateCanvasMatrix();
+			}
+
 			this.fireAction();
 			if (!this.state.wasMoved) {
 				this.setState({ wasMoved: true });
