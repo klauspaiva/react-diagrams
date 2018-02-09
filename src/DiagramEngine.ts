@@ -441,9 +441,9 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 		return {
 			width: Math.ceil(Math.abs(minX) + maxX),
-			hAdjustmentFactor: Math.abs(minX) / ROUTING_SCALING_FACTOR,
+			hAdjustmentFactor: Math.abs(minX) / ROUTING_SCALING_FACTOR + 1,
 			height: Math.ceil(Math.abs(minY) + maxY),
-			vAdjustmentFactor: Math.abs(minY) / ROUTING_SCALING_FACTOR,
+			vAdjustmentFactor: Math.abs(minY) / ROUTING_SCALING_FACTOR + 1,
 		}
 	}
 
@@ -459,7 +459,7 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 			for (let x = startX - 1; x <= endX + 1; x++) {
 				for (let y = startY - 1; y < endY + 1; y++) {
-					matrix[this.translateRoutingY(y)][this.translateRoutingX(x)] = 1;
+					this.markMatrixPoint(matrix, this.translateRoutingX(x), this.translateRoutingY(y));
 				}
 			}
 		});
@@ -479,17 +479,23 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 			for (let x = startX - 1; x <= endX + 1; x++) {
 				for (let y = startY - 1; y < endY + 1; y++) {
-					matrix[this.translateRoutingY(y)][this.translateRoutingX(x)] = 1;
+					this.markMatrixPoint(matrix, this.translateRoutingX(x), this.translateRoutingY(y));
 				}
 			}
 		});
+	}
+
+	markMatrixPoint = (matrix: number[][], x: number, y: number) => {
+		if (matrix[y] !== undefined && matrix[y][x] !== undefined) {
+			matrix[y][x] = 1;
+		}
 	}
 
 	translateRoutingX(x: number, reverse: boolean = false) {
 		return x + this.hAdjustmentFactor * (reverse ? -1 : 1);
 	}
 	translateRoutingY(y: number, reverse: boolean = false) {
-		return y + this.hAdjustmentFactor * (reverse ? -1 : 1);
+		return y + this.vAdjustmentFactor * (reverse ? -1 : 1);
 	}
 
 	zoomToFit() {
