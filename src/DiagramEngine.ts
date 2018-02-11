@@ -333,7 +333,6 @@ export class DiagramEngine extends BaseEntity<DiagramEngineListener> {
 
 		return this.canvasMatrix;
 	}
-	// TODO: what happens when the canvas change its dimensions?
 	calculateCanvasMatrix() {
 		const {
 			width: canvasWidth,
