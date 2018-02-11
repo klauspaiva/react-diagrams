@@ -302,7 +302,7 @@ export class DefaultLinkWidget extends React.Component<DefaultLinkProps, Default
 
 		if (diagramEngine.isSmartRoutingEnabled()) {
 			// first step: calculate a direct path between the points being linked
-			const directPathCoords = this.calculateDirectPath(points[0], points[1]);
+			const directPathCoords = this.calculateDirectPath(_.first(points), _.last(points));
 
 			const routingMatrix = diagramEngine.getRoutingMatrix();
 			// now we need to extract, from the routing matrix, the very first walkable points
